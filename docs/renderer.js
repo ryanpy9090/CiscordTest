@@ -1462,8 +1462,13 @@ const Ringer = (() => {
     const c = ensureCtx();
     if (c && c.state === 'suspended') c.resume().catch(() => {});
   }
-  // Unlock on the very first user gesture (browser autoplay policy).
-  document.addEventListener('click', unlock, { once: true });
+  // Unlock on the very first user gesture (browser autoplay policy) and any
+  // later gesture — a suspended context after a page reload would mute the
+  // first ring burst, so keep retrying resume on every interaction.
+  document.addEventListener('click', unlock);
+  document.addEventListener('keydown', unlock);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) unlock(); });
+  window.addEventListener('focus', unlock);
 
   function burst() {
     const c = ensureCtx();
@@ -1490,6 +1495,12 @@ const Ringer = (() => {
       ringing = true;
       unlock();
       burst(); // first burst immediately
+      // If the context was still suspended (autoplay policy), the first burst
+      // was silent — retry as soon as the context actually starts running.
+      const c = ensureCtx();
+      if (c && c.state !== 'running') {
+        c.onstatechange = () => { if (c.state === 'running' && ringing) burst(); };
+      }
       timer = setInterval(burst, 6000); // 2s tone + 4s silence, classic ring
     },
     stop() {
