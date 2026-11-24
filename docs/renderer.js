@@ -134,6 +134,23 @@ function ensureNotificationPermission() {
 document.addEventListener('click', () => Blip.unlock(), { once: true });
 document.addEventListener('keydown', () => Blip.unlock(), { once: true });
 
+// Mobile back button: leave the chat view, show the sidebar again.
+(function initBackBtn() {
+  const back = $('btnBack');
+  if (!back) return;
+  back.addEventListener('click', () => {
+    if (window.innerWidth <= 720) {
+      const app = document.querySelector('.app');
+      if (app) app.classList.remove('chatting');
+      back.style.display = 'none';
+    }
+  });
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 720) back.style.display = 'none';
+    else if (active) back.style.display = 'inline-flex';
+  });
+})();
+
 // System notification for a new incoming message (background tab or always, per permission).
 function notifyMessage(authorName, body) {
   try {
@@ -738,9 +755,17 @@ async function profile(uid) {
   return p;
 }
 
+function setChatting(on) {
+  const app = document.querySelector('.app');
+  if (app) app.classList.toggle('chatting', !!on);
+  const back = $('btnBack');
+  if (back) back.style.display = (on && window.matchMedia('(max-width: 720px)').matches) ? 'inline-flex' : 'none';
+}
+
 function openGroup(g) {
   view = 'groups';
   active = { scope: 'group', id: g.id, title: g.name, ref: g };
+  setChatting(true);
   $('chatTitle').textContent = '# ' + g.name;
   $('sideHead').textContent = g.name;
   $('input').placeholder = 'Message #' + g.name;
@@ -754,6 +779,7 @@ function openGroup(g) {
 
 function openDM(f) {
   active = { scope: 'dm', id: f.uid, title: getDisplayName(f), ref: f };
+  setChatting(true);
   $('chatTitle').textContent = getDisplayName(f);
   $('sideHead').textContent = 'Friends';
   $('input').placeholder = 'Message ' + getDisplayName(f);
@@ -766,6 +792,7 @@ function openDM(f) {
 
 function resetChat() {
   active = null;
+  setChatting(false);
   $('chatTitle').textContent = 'Ciscord';
   $('messages').innerHTML = '<div class="empty">Select a group or a friend</div>';
   $('members').innerHTML = '<div class="empty">-</div>';
