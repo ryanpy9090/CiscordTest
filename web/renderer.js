@@ -1658,7 +1658,7 @@ function updateCallParticipants() {
   activeCall.participants.forEach(uid => {
     const participant = document.createElement('div');
     participant.className = 'call-participant';
-    participant.style.cssText = 'width: 100px; height: 100px; border-radius: 50%; background: var(--bg-side); display: flex; align-items: center; justify-content: center; font-size: 32px; border: 3px solid var(--accent);';
+    participant.style.cssText = 'width: 130px; height: 130px; border-radius: 50%; background: var(--bg-side); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 40px; border: 3px solid var(--accent); flex: 0 0 auto;';
     participant.textContent = uid === uidOf() ? 'You' : '👤';
     container.appendChild(participant);
   });

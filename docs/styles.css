@@ -319,7 +319,8 @@ button:disabled { opacity: .45; cursor: default; }
 /* ── Call bar ── */
 .call-bar {
   position: fixed;
-  top: 60px;
+  bottom: 90px;
+  top: auto;
   left: 50%;
   transform: translateX(-50%);
   background: var(--bg-side);
@@ -379,3 +380,100 @@ button:disabled { opacity: .45; cursor: default; }
   outline: none;
 }
 .sheet-card input[type=text]:focus { border-color: var(--accent); }
+.call-bar-btn.decline, .call-bar-btn.hangup { background: var(--danger); color: #fff; }
+
+/* ── Full-screen call modal ── */
+.call-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.call-modal-content {
+  background: var(--bg-deep);
+  border-radius: 20px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+}
+.call-modal-header {
+  padding: 30px;
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+}
+.call-modal-header h2 {
+  font-size: 28px;
+  margin: 0 0 10px 0;
+  color: var(--text);
+}
+.call-status {
+  font-size: 16px;
+  color: var(--text-dim);
+}
+.call-modal-body {
+  padding: 30px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+.call-participants {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+.call-controls {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+}
+.call-control-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 30px;
+  background: var(--bg-side);
+  border: 2px solid var(--border);
+  border-radius: 15px;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 120px;
+}
+.call-control-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+.call-control-btn .icon {
+  font-size: 32px;
+}
+.call-control-btn .label {
+  font-size: 14px;
+  font-weight: 600;
+}
+.call-control-btn.hangup {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+.call-control-btn.hangup:hover {
+  background: #c0392b;
+  border-color: #c0392b;
+}
+.call-control-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #06231f;
+}
