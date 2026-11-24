@@ -68,6 +68,81 @@ function toast(msg, ms = 2800) {
   toastTimer = setTimeout(() => el.classList.add('hidden'), ms);
 }
 
+// ── Message blip: tiny two-tone "ping" when a message arrives from others ──
+const Blip = (() => {
+  let ctx = null;
+  function ensureCtx() {
+    if (!ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      ctx = new AC();
+    }
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    return ctx;
+  }
+  function play() {
+    const c = ensureCtx();
+    if (!c || c.state !== 'running') return;
+    const now = c.currentTime;
+    [880, 1245].forEach((freq, i) => {
+      const osc = c.createOscillator();
+      const gain = c.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const t0 = now + i * 0.09;
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(0.08, t0 + 0.015);
+      gain.gain.linearRampToValueAtTime(0, t0 + 0.16);
+      osc.connect(gain).connect(c.destination);
+      osc.start(t0);
+      osc.stop(t0 + 0.18);
+    });
+  }
+  return { play, unlock: ensureCtx };
+})();
+
+// ── Notification permission on launch: if granted → use them; if not decided
+//    → ask once; if denied → stay silent (in-app toast only). ──
+function ensureNotificationPermission() {
+  try {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'default') {
+      // Ask on the first user gesture so browsers accept the prompt.
+      const askOnce = () => {
+        Notification.requestPermission().then(p => {
+          toast(p === 'granted' ? '🔔 Notifications enabled' : '🔕 Notifications off — messages show as toast only');
+        });
+        document.removeEventListener('click', askOnce);
+        document.removeEventListener('keydown', askOnce);
+      };
+      document.addEventListener('click', askOnce, { once: true });
+      document.addEventListener('keydown', askOnce, { once: true });
+    } else if (Notification.permission === 'granted') {
+      toast('🔔 Notifications are on');
+    } else {
+      toast('🔕 Notifications are off — enable them in browser settings for message alerts');
+    }
+  } catch (e) { console.warn('[Notify] permission check failed:', e); }
+}
+
+// Unlock the message-blip audio context on first gesture (autoplay policy).
+document.addEventListener('click', () => Blip.unlock(), { once: true });
+document.addEventListener('keydown', () => Blip.unlock(), { once: true });
+
+// System notification for a new incoming message (background tab or always, per permission).
+function notifyMessage(authorName, body) {
+  try {
+    if (!('Notification' in window)) return;
+    if (Notification.permission !== 'granted') return;
+    const n = new Notification('💬 ' + (authorName || 'New message'), {
+      body: (body || '').slice(0, 120) || 'Sent you a message',
+      tag: 'ciscord-msg'
+    });
+    n.onclick = () => { window.focus(); n.close(); };
+    setTimeout(() => { try { n.close(); } catch {} }, 6000);
+  } catch (e) {}
+}
+
 function ask({ title, text, placeholder = '', confirmText = 'OK' }) {
   return new Promise(resolve => {
     $('dlgTitle').textContent = title;
@@ -449,6 +524,7 @@ function bootApp() {
     $('auth').classList.add('hidden');
     $('app').classList.remove('hidden');
     renderMe();
+    ensureNotificationPermission(); // check notification permission on launch
     startWatching();
   });
   if (rtdb) {
@@ -715,6 +791,16 @@ function watchMessages() {
 async function renderMessages(list) {
   window._lastMessages = list;
   const box = $('messages');
+  // ── New-message alert: blip + toast + system notification for messages from others ──
+  const prevList = window._prevMessages || [];
+  const prevIds = new Set(prevList.map(m => m.id));
+  const meUid0 = cis.currentUid();
+  const fresh = list.filter(m => m.id && !prevIds.has(m.id) && m.from !== meUid0 && m.type !== 'call');
+  if (prevList.length && fresh.length && document.body) {
+    Blip.play();
+    window._pendingFresh = fresh;
+  }
+  window._prevMessages = list;
   box.innerHTML = '';
   if (!list.length) {
     box.innerHTML = '<div class="empty">No messages yet - say something</div>';
@@ -729,6 +815,11 @@ async function renderMessages(list) {
   list.forEach(m => {
     const authorProfile = profiles[m.from] || { name: 'Unknown' };
     const author = getDisplayName(authorProfile);
+    // Fire toast + system notification now that the sender's name is known
+    if (window._pendingFresh && window._pendingFresh.some(f => f.id === m.id)) {
+      toast('💬 ' + author + ': ' + (m.body ? String(m.body).slice(0, 60) : 'sent an attachment'));
+      notifyMessage(author, m.body || 'sent an attachment');
+    }
     const avatarUrl = getAvatarUrl(authorProfile);
     const el = document.createElement('div');
     el.className = 'msg';
