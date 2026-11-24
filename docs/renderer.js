@@ -105,27 +105,43 @@ const Blip = (() => {
 //    → show a visible "Enable notifications" button; on click → ask. ──
 function ensureNotificationPermission() {
   try {
-    if (!('Notification' in window)) return;
     const btn = $('btnEnableNotif');
+    const supported = ('Notification' in window);
+    const perm = supported ? Notification.permission : 'unsupported';
     const refresh = () => {
       if (!btn) return;
-      btn.classList.toggle('hidden', Notification.permission !== 'default');
+      const p = ('Notification' in window) ? Notification.permission : 'unsupported';
+      // Show the button whenever notifications are not yet granted (incl. iOS where the API may be missing).
+      btn.classList.toggle('hidden', p === 'granted');
     };
-    if (Notification.permission === 'default') {
-      if (btn) {
-        btn.classList.remove('hidden');
+    if (perm === 'granted') {
+      if (btn) btn.classList.add('hidden');
+      return;
+    }
+    if (btn) {
+      btn.classList.remove('hidden');
+      if (perm === 'default') {
+        btn.textContent = '🔔 Enable notifications';
         btn.onclick = () => {
           Notification.requestPermission().then(p => {
             refresh();
             toast(p === 'granted' ? '🔔 Notifications enabled' : '🔕 Notifications off — messages show as toast only');
-          });
+          }).catch(() => {});
+        };
+      } else if (perm === 'denied') {
+        btn.textContent = '🔕 Notifications blocked';
+        btn.onclick = () => toast('🔕 Blocked in browser settings — tap the lock icon in the address bar → Notifications → Allow');
+      } else { // unsupported (older iOS Safari): offer guidance; in-app alerts still work
+        btn.textContent = '🔔 Enable notifications';
+        btn.onclick = () => {
+          // Try the API anyway (some mobile browsers expose it late); else guide the user.
+          if ('Notification' in window) {
+            Notification.requestPermission().then(p => { refresh(); toast(p === 'granted' ? '🔔 Notifications enabled' : '🔕 Notifications off'); }).catch(() => {});
+          } else {
+            toast('📲 iOS Safari: add to Home Screen or use Chrome for push notifications. In-app alerts (blip + toast) work here.');
+          }
         };
       }
-    } else if (Notification.permission === 'granted') {
-      if (btn) btn.classList.add('hidden');
-    } else {
-      if (btn) btn.classList.add('hidden');
-      toast('🔕 Notifications are off — enable them in browser settings for message alerts');
     }
   } catch (e) { console.warn('[Notify] permission check failed:', e); }
 }

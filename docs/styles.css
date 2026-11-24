@@ -171,9 +171,11 @@ button:disabled { opacity: .45; cursor: default; }
   border-bottom: 1px solid var(--border);
   -webkit-app-region: drag;
 }
-.tb-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.titlebar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tb-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; }
+.titlebar { display: flex; align-items: center; justify-content: space-between; gap: 8px; overflow: visible; }
 .notif-ask-btn {
+  position: relative;
+  z-index: 5;
   margin-left: auto;
   flex: 0 0 auto;
   font-size: 12px;
