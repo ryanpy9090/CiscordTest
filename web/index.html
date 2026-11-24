@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Ciscord - Web</title>
+  
+  <!-- Firebase SDK (CDN) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  
+  <!-- PeerJS (CDN) -->
+  <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
+  
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ══ Sign-in ══════════════════════════════════════════════════════════ -->
+<div id="auth" class="auth">
+  <div class="auth-card">
+    <div class="logo-lg">C</div>
+    <h1>Ciscord</h1>
+    <p class="auth-sub">Groups by invite. Private chats between friends.</p>
+
+    <button id="googleBtn" class="g-btn">
+      <svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="true">
+        <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.6 30.2.5 24 .5 14.6.5 6.5 5.9 2.6 13.7l7.8 6.1C12.3 13.9 17.6 9.5 24 9.5z"/>
+        <path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-2.8-.4-4.1H24v8.4h12.5c-.3 2.1-1.6 5.2-4.6 7.3l7.6 5.9c4.5-4.2 6.6-10.2 6.6-17.5z"/>
+        <path fill="#FBBC05" d="M10.4 28.2A14.6 14.6 0 0 1 9.6 24c0-1.5.3-2.9.7-4.2l-7.8-6.1A23.9 23.9 0 0 0 .5 24c0 3.9.9 7.5 2.1 10.3l7.8-6.1z"/>
+        <path fill="#34A853" d="M24 47.5c6.2 0 11.4-2 15.1-5.5l-7.6-5.9c-2 1.4-4.7 2.4-7.5 2.4-6.4 0-11.7-4.4-13.6-10.3l-7.8 6.1C6.5 42.1 14.6 47.5 24 47.5z"/>
+      </svg>
+      <span>Continue with Google</span>
+    </button>
+
+    <p id="authMsg" class="auth-msg"></p>
+    <p class="auth-note">Each person signs in with their own Google account.</p>
+  </div>
+</div>
+
+<!-- ══ App ══════════════════════════════════════════════════════════════ -->
+<div id="app" class="app hidden">
+
+  <!-- Mobile menu button -->
+  <button id="mobileMenuBtn" class="mobile-menu-btn hidden">☰</button>
+
+  <div class="rail">
+    <div class="rail-brand" title="Ciscord">C</div>
+    <div class="rail-sep"></div>
+    <div id="railGroups" class="rail-stack"></div>
+    <div class="rail-sep"></div>
+    <button class="rail-btn" id="btnJoinGroup" title="Join a group with an invite code">+</button>
+    <button class="rail-btn" id="btnNewGroup" title="Create a group">⚑</button>
+    <div class="rail-sep"></div>
+    <div class="rail-links">
+      <button class="rail-btn sm" id="navFriends" title="Friends &amp; invites">👥</button>
+      <button class="rail-btn sm" id="navHome" title="Groups">💬</button>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="side-head" id="sideHead">Groups</div>
+    <div id="sideBody" class="side-body"></div>
+    <div class="me">
+      <img id="mePhoto" class="avatar-img hidden" alt="">
+      <div id="meInitial" class="avatar-txt">?</div>
+      <div class="me-text">
+        <b id="meName">—</b>
+        <span id="meEmail"></span>
+      </div>
+      <button id="btnMe" class="icon-btn" title="Account">⚙</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="titlebar">
+      <span class="tb-title" id="chatTitle">Ciscord</span>
+    </div>
+    <div id="messages" class="messages"><div class="empty">Select a group or a friend</div></div>
+    <div class="composer">
+      <button id="btnAttach" class="composer-icon-btn" title="Attach file" disabled>+</button>
+      <button id="btnMic" class="composer-icon-btn" title="Voice message" disabled>MIC</button>
+      <input id="input" type="text" placeholder="Message…" autocomplete="off" disabled>
+      <button id="btnCall" class="composer-icon-btn" title="Voice call" disabled>CALL</button>
+      <button id="send" disabled>Send</button>
+    </div>
+  </div>
+
+  <div class="members" id="members"><div class="empty">—</div></div>
+</div>
+
+<!-- ══ Call bar ═══════════════════════════════════════════════════════ -->
+<div id="callBar" class="call-bar hidden">
+  <span class="call-bar-text"></span>
+  <button id="btnMute" class="call-bar-btn" title="Mute/Unmute">🎤 Mute</button>
+  <button id="btnScreen" class="call-bar-btn" title="Share Screen">🖥 Share</button>
+  <button id="btnHangup" class="call-bar-btn hangup" title="End Call">✕ Hangup</button>
+</div>
+
+<!-- ══ Full-screen call modal ═══════════════════════════════════════ -->
+<div id="callModal" class="call-modal hidden">
+  <div class="call-modal-content">
+    <div class="call-modal-header">
+      <h2 id="callModalTitle">Voice Call</h2>
+      <span id="callModalStatus" class="call-status">Connecting...</span>
+    </div>
+    <div class="call-modal-body">
+      <div class="call-participants" id="callParticipants"></div>
+      <div class="call-controls">
+        <button id="modalBtnMute" class="call-control-btn" title="Mute/Unmute">
+          <span class="icon">🎤</span>
+          <span class="label">Mute</span>
+        </button>
+        <button id="modalBtnScreen" class="call-control-btn" title="Share Screen">
+          <span class="icon">🖥</span>
+          <span class="label">Share</span>
+        </button>
+        <button id="modalBtnHangup" class="call-control-btn hangup" title="End Call">
+          <span class="icon">✕</span>
+          <span class="label">End</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Account menu ════════════════════════════════════════════════════ -->
+<div id="meMenu" class="sheet hidden">
+  <div class="sheet-card">
+    <h3>Account</h3>
+    <div class="row"><span class="k">Signed in as</span><span class="v" id="acctEmail">—</span></div>
+    <div class="row"><span class="k">Your friend code</span>
+      <span class="v code" id="acctCode">—</span>
+      <button class="mini" id="btnCopyCode">Copy</button>
+    </div>
+    <p class="hint">Share this code so someone can add you as a friend.</p>
+    <div class="row"><span class="k">Display name</span>
+      <input id="acctDisplayName" type="text" placeholder="Custom name shown to friends" style="flex:1; margin-left:8px;">
+      <button class="mini" id="btnSaveDisplayName">Save</button>
+    </div>
+    <div class="row"><span class="k">Profile picture</span>
+      <button class="mini" id="btnUploadAvatar">Upload</button>
+    </div>
+    <div class="sheet-actions">
+      <button class="ghost" id="btnSignOut">Sign out</button>
+      <button class="danger" id="btnDelete">Delete my account</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Generic dialog ══════════════════════════════════════════════════ -->
+<div id="dialog" class="sheet hidden">
+  <div class="sheet-card">
+    <h3 id="dlgTitle">Title</h3>
+    <p id="dlgText" class="hint"></p>
+    <input id="dlgInput" type="text" class="hidden" autocomplete="off">
+    <p id="dlgErr" class="err"></p>
+    <div class="sheet-actions">
+      <button class="ghost" id="dlgCancel">Cancel</button>
+      <button class="primary" id="dlgOk">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Setup gate (no config yet) ══════════════════════════════════════ -->
+<div id="gate" class="auth hidden">
+  <div class="auth-card">
+    <div class="logo-lg">!</div>
+    <h1>One step left</h1>
+    <p id="gateBody" class="auth-sub"></p>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="firebase-config.js"></script>
+<script src="renderer.js"></script>
+</body>
+</html>

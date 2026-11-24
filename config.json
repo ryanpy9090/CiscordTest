@@ -1,0 +1,29 @@
+{
+  "ai": {
+    "provider": "alibaba",
+    "api_key": "sk-sp-4dbbab2a75854c178cc27896ef21e3b4",
+    "api_url": "https://coding-intl.dashscope.aliyuncs.com/v1/chat/completions",
+    "model": "qwen-plus",
+    "enabled": true,
+    "rate_limit": {
+      "max_requests_per_minute": 10,
+      "max_tokens_per_day": 100000
+    }
+  },
+  "server": {
+    "host": "0.0.0.0",
+    "port": 3000
+  },
+  "security": {
+    "api_key_server_only": true,
+    "note": "API key never exposed to client - stays in main.js only"
+  },
+  "notes": {
+    "provider": "Alibaba Cloud DashScope (Qwen)",
+    "api_key": "Your Alibaba Cloud API key",
+    "enabled": "Set to false to disable AI integration",
+    "server_host": "0.0.0.0 allows access from WiFi network",
+    "access_url": "http://192.168.88.112:3000",
+    "security": "API key is server-side only - users can't see or steal it"
+  }
+}

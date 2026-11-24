@@ -1,0 +1,40 @@
+{
+  "name": "ciscord",
+  "version": "1.3.6",
+  "description": "Ciscord — a Discord-style desktop chat client",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "author": "RyanPy",
+  "license": "MIT",
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
+    "electron": "^33.0.0",
+    "electron-builder": "^26.15.3"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "firebase": "9.23.0",
+    "peerjs": "^1.5.5",
+    "ws": "^8.22.0"
+  },
+  "build": {
+    "appId": "com.ryanpy.ciscord",
+    "productName": "Ciscord",
+    "directories": {
+      "output": "release"
+    },
+    "asar": false,
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico",
+      "signAndEditExecutable": false
+    }
+  },
+  "allowScripts": {
+    "electron@33.4.11": true
+  }
+}

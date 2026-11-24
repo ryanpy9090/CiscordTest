@@ -1,0 +1,13 @@
+node_modules/
+release/
+dist/
+android/app/build/
+android/.gradle/
+android/local.properties
+*.log
+diag*.js
+exe-run.log
+run.log
+main.js.orig
+renderer.js.orig
+.capacitor/
