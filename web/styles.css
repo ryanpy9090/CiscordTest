@@ -172,6 +172,20 @@ button:disabled { opacity: .45; cursor: default; }
   -webkit-app-region: drag;
 }
 .tb-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.titlebar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.notif-ask-btn {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #06231f;
+  cursor: pointer;
+}
+.notif-ask-btn:hover { filter: brightness(1.1); }
 .win-btns { display: flex; -webkit-app-region: no-drag; }
 .win-btns button {
   width: 46px; height: 48px;

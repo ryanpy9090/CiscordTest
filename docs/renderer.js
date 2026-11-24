@@ -102,24 +102,29 @@ const Blip = (() => {
 })();
 
 // ── Notification permission on launch: if granted → use them; if not decided
-//    → ask once; if denied → stay silent (in-app toast only). ──
+//    → show a visible "Enable notifications" button; on click → ask. ──
 function ensureNotificationPermission() {
   try {
     if (!('Notification' in window)) return;
+    const btn = $('btnEnableNotif');
+    const refresh = () => {
+      if (!btn) return;
+      btn.classList.toggle('hidden', Notification.permission !== 'default');
+    };
     if (Notification.permission === 'default') {
-      // Ask on the first user gesture so browsers accept the prompt.
-      const askOnce = () => {
-        Notification.requestPermission().then(p => {
-          toast(p === 'granted' ? '🔔 Notifications enabled' : '🔕 Notifications off — messages show as toast only');
-        });
-        document.removeEventListener('click', askOnce);
-        document.removeEventListener('keydown', askOnce);
-      };
-      document.addEventListener('click', askOnce, { once: true });
-      document.addEventListener('keydown', askOnce, { once: true });
+      if (btn) {
+        btn.classList.remove('hidden');
+        btn.onclick = () => {
+          Notification.requestPermission().then(p => {
+            refresh();
+            toast(p === 'granted' ? '🔔 Notifications enabled' : '🔕 Notifications off — messages show as toast only');
+          });
+        };
+      }
     } else if (Notification.permission === 'granted') {
-      toast('🔔 Notifications are on');
+      if (btn) btn.classList.add('hidden');
     } else {
+      if (btn) btn.classList.add('hidden');
       toast('🔕 Notifications are off — enable them in browser settings for message alerts');
     }
   } catch (e) { console.warn('[Notify] permission check failed:', e); }
