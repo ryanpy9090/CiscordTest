@@ -68,6 +68,92 @@ function toast(msg, ms = 2800) {
   toastTimer = setTimeout(() => el.classList.add('hidden'), ms);
 }
 
+// ==================== i18n (English / Arabic) ====================
+// Language is stored in localStorage and changeable from the Account menu.
+// Static chrome is tagged with data-i18n / data-i18n-ph / data-i18n-title in
+// index.html; dynamic strings go through t() (falls back to English).
+const I18N = {
+  en: {},
+  ar: {
+    'auth-sub': 'مجموعات بالدعوة. محادثات خاصة بين الأصدقاء.',
+    'auth-note': 'كل شخص يسجّل دخول بحساب Google الخاص فيه.',
+    'btn-google': 'المتابعة عبر Google',
+    'nav-groups-title': 'المجموعات',
+    'nav-friends-title': 'الأصدقاء والدعوات',
+    'join-group-title': 'انضم لمجموعة بكود دعوة',
+    'new-group-title': 'أنشئ مجموعة',
+    'account-title': 'الحساب',
+    'side-groups': 'المجموعات',
+    'side-friends': 'الأصدقاء',
+    'side-requests': 'الطلبات',
+    'side-requests-n': 'الطلبات ({n})',
+    'members-n': 'الأعضاء ({n})',
+    'empty-select': 'اختر مجموعة أو صديق',
+    'ph-message': 'رسالة…',
+    'btn-send': 'إرسال',
+    'btn-call': 'اتصال',
+    'btn-mic': 'مايك',
+    'attach-title': 'إرفاق ملف',
+    'call-title': 'مكالمة صوتية',
+    'btn-hangup': '✕ إنهاء',
+    'modal-btn-end': 'إنهاء',
+    'modal-btn-mute': 'كتم',
+    'btn-mute': '🎤 كتم',
+    'btn-unmute': '🎤 إلغاء الكتم',
+    'modal-label-mute': 'كتم',
+    'modal-label-unmute': 'إلغاء الكتم',
+    'menu-account': 'الحساب',
+    'signed-in-as': 'مسجّل الدخول باسم',
+    'friend-code': 'كود الصديق الخاص بك',
+    'btn-copy': 'نسخ',
+    'hint-share-code': 'شارك هذا الكود ليضيفك أحد كصديق.',
+    'display-name': 'اسم العرض',
+    'ph-display-name': 'الاسم الظاهر للأصدقاء',
+    'btn-save': 'حفظ',
+    'profile-pic': 'صورة الملف الشخصي',
+    'btn-upload': 'رفع',
+    'btn-ai-settings': '🤖 إعدادات الذكاء الاصطناعي',
+    'btn-signout': 'تسجيل الخروج',
+    'btn-delete-account': 'حذف حسابي',
+    'language': 'اللغة',
+    'call-waiting': 'بانتظار الطرف الآخر…',
+    'call-connecting': 'جاري الاتصال…',
+    'call-incoming': '📞 {name} يتصل…',
+    'toast-call-started': 'بدأت المكالمة',
+    'toast-call-joined': 'انضممت للمكالمة',
+    'toast-muted': 'تم كتم المايك',
+    'toast-unmuted': 'تم إلغاء كتم المايك',
+    'toast-code-copied': 'تم نسخ الكود',
+    'already-in-call': 'أنت في مكالمة بالفعل',
+  },
+};
+let lang = 'en';
+try { lang = localStorage.getItem('ciscord_lang') === 'ar' ? 'ar' : 'en'; } catch (e) {}
+function t(key, vars) {
+  let s = (I18N[lang] && I18N[lang][key]) || '';
+  if (!s) return (vars && vars.__fallback != null) ? vars.__fallback : (vars || '');
+  if (vars) for (const k in vars) { if (k !== '__fallback') s = s.replace('{' + k + '}', vars[k]); }
+  return s;
+}
+function applyLanguage() {
+  document.documentElement.lang = lang;
+  document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const v = t(el.dataset.i18n);
+    if (v) el.textContent = v;
+  });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+    const v = t(el.dataset.i18nPh);
+    if (v) el.placeholder = v;
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    const v = t(el.dataset.i18nTitle);
+    if (v) el.title = v;
+  });
+  if (typeof renderSidebar === 'function') { try { renderSidebar(); } catch (e) {} }
+  try { localStorage.setItem('ciscord_lang', lang); } catch (e) {}
+}
+
 function ask({ title, text, placeholder = '', confirmText = 'OK' }) {
   return new Promise(resolve => {
     $('dlgTitle').textContent = title;
@@ -541,7 +627,7 @@ function renderSidebar() {
   body.innerHTML = '';
   if (view === 'groups') {
     if (!groups.length) {
-      $('sideHead').textContent = 'Groups';
+      $('sideHead').textContent = t('side-groups', 'Groups');
       body.innerHTML = '<div class="empty">No groups yet.<br>Create one, or join with an invite code.</div>';
       return;
     }
@@ -576,10 +662,10 @@ function renderSidebar() {
     });
     return;
   }
-  $('sideHead').textContent = 'Friends';
+  $('sideHead').textContent = t('side-friends', 'Friends');
   const reqHead = document.createElement('div');
   reqHead.className = 'side-head-2';
-  reqHead.textContent = requests.length ? 'Requests (' + requests.length + ')' : 'Requests';
+  reqHead.textContent = requests.length ? t('side-requests-n', { n: requests.length, __fallback: 'Requests (' + requests.length + ')' }) : t('side-requests', 'Requests');
   body.appendChild(reqHead);
   if (!requests.length) {
     const none = document.createElement('div');
@@ -674,7 +760,7 @@ function openGroup(g) {
 function openDM(f) {
   active = { scope: 'dm', id: f.uid, title: getDisplayName(f), ref: f };
   $('chatTitle').textContent = getDisplayName(f);
-  $('sideHead').textContent = 'Friends';
+  $('sideHead').textContent = t('side-friends', 'Friends');
   $('input').placeholder = 'Message ' + getDisplayName(f);
   enableComposer(true);
   renderSidebar();
@@ -686,7 +772,7 @@ function openDM(f) {
 function resetChat() {
   active = null;
   $('chatTitle').textContent = 'Ciscord';
-  $('messages').innerHTML = '<div class="empty">Select a group or a friend</div>';
+  $('messages').innerHTML = '<div class="empty">' + t('empty-select', 'Select a group or a friend') + '</div>';
   $('members').innerHTML = '<div class="empty">-</div>';
   enableComposer(false);
   renderRail();
@@ -1219,7 +1305,7 @@ function disconnectVoiceServer() {
 
 async function startVoiceCall() {
   if (!active || activeCall) {
-    if (activeCall) toast('Already in a call');
+    if (activeCall) toast(t('already-in-call', 'Already in a call'));
     return;
   }
   
@@ -1284,8 +1370,8 @@ async function startVoiceCall() {
     await cis.joinCall(callId);
     
     activeCall = { callId, scope: active.scope, thread: active.id, participants };
-    showCallBar('Waiting for peer...');
-    toast('Call started');
+    showCallBar(t('call-waiting', 'Waiting for peer...'));
+    toast(t('toast-call-started', 'Call started'));
     
     // Watch for peer to join
     if (callUnsub) { try { callUnsub(); } catch {} }
@@ -1367,14 +1453,14 @@ async function joinExistingCall(callData) {
     // Initialize PeerJS - will handle incoming call via peer.on('call')
     await initPeerJS();
     
-    showCallBar('Connecting...');
+    showCallBar(t('call-connecting', 'Connecting...'));
     
     if (callUnsub) { try { callUnsub(); } catch {} }
     callUnsub = cis.watchCall(callData.callId, async (cd) => {
       if (cd.status === 'ended') endCurrentCall();
     });
     
-    toast('Joined call');
+    toast(t('toast-call-joined', 'Joined call'));
   } catch (e) {
     console.error('[Voice] Join error:', e);
     if (localMediaStream) {
@@ -1411,13 +1497,13 @@ function toggleMute() {
   isMuted = !isMuted;
   audioTracks.forEach(track => { track.enabled = !isMuted; });
   const btn = $('btnMute');
-  if (btn) btn.textContent = isMuted ? 'Unmute' : 'Mute';
+  if (btn) btn.textContent = isMuted ? t('btn-unmute', 'Unmute') : t('btn-mute', 'Mute');
   const modalBtn = $('modalBtnMute');
   if (modalBtn) {
-    modalBtn.querySelector('.label').textContent = isMuted ? 'Unmute' : 'Mute';
+    modalBtn.querySelector('.label').textContent = isMuted ? t('modal-label-unmute', 'Unmute') : t('modal-label-mute', 'Mute');
     if (isMuted) modalBtn.classList.add('active'); else modalBtn.classList.remove('active');
   }
-  toast(isMuted ? 'Microphone muted' : 'Microphone unmuted');
+  toast(isMuted ? t('toast-muted', 'Microphone muted') : t('toast-unmuted', 'Microphone unmuted'));
 }
 
 function watchCallState() {
@@ -1602,7 +1688,7 @@ function showIncomingCall(callData) {
     if (bar) {
       bar.classList.remove('hidden');
       bar.className = 'call-bar incoming';
-      bar.querySelector('.call-bar-text').textContent = '📞 ' + name + ' is calling…';
+      bar.querySelector('.call-bar-text').textContent = t('call-incoming', { name: name, __fallback: '📞 ' + name + ' is calling…' });
       const btnMute = $('btnMute');
       if (btnMute) btnMute.style.display = 'none';
       let btnAccept = bar.querySelector('#callAccept');
@@ -1679,7 +1765,7 @@ async function renderGroupMembers(g) {
   box.innerHTML = '';
   const head = document.createElement('div');
   head.className = 'side-head-2';
-  head.textContent = 'Members (' + g.members.length + ')';
+  head.textContent = t('members-n', { n: g.members.length, __fallback: 'Members (' + g.members.length + ')' });
   box.appendChild(head);
   for (const uid of g.members) {
     const p = await profile(uid);
@@ -1759,6 +1845,15 @@ function openMeMenu() { $('meMenu').classList.remove('hidden'); }
 function closeMeMenu() { $('meMenu').classList.add('hidden'); }
 
 function initAccountMenu() {
+  // Language selector (English / العربية) — applies instantly and persists.
+  const langSel = $('langSelect');
+  if (langSel) {
+    langSel.value = lang;
+    langSel.addEventListener('change', () => {
+      lang = langSel.value === 'ar' ? 'ar' : 'en';
+      applyLanguage();
+    });
+  }
   $('btnMe').addEventListener('click', async () => {
     $('acctCode').textContent = '...';
     if ($('acctDisplayName')) $('acctDisplayName').value = me.displayName || '';
@@ -1970,3 +2065,4 @@ $('googleBtn').addEventListener('click', async () => {
 initAccountMenu();
 initAiSettingsMenu();
 initFileDrop();
+applyLanguage();
