@@ -4,6 +4,14 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
 }[c]));
+// URL allowlist: block javascript:/data:text/html etc. in href/src (esc() alone doesn't stop scheme injection)
+const safeUrl = s => {
+  const v = String(s == null ? '' : s).trim();
+  if (/^https:\/\//i.test(v)) return v;
+  if (/^data:(image|audio|video)\//i.test(v)) return v; // app stores files as data URLs
+  if (/^blob:/i.test(v)) return v;
+  return '#'; // neutralize disallowed schemes
+};
 
 let me = null;
 let groups = [];
@@ -822,6 +830,7 @@ function bootApp() {
 
 function teardown() {
   unsubs.splice(0).forEach(u => { try { u(); } catch {} });
+  if (msgUnsub) { try { msgUnsub(); } catch {} msgUnsub = null; }
   groups = []; friends = []; requests = [];
   active = null;
   profileCache.clear();
@@ -989,7 +998,7 @@ function renderSidebar() {
     el.className = 'side-item' + (active && active.id === f.uid ? ' active' : '');
     const avatarUrl = getAvatarUrl(f);
     const avatarHtml = avatarUrl
-      ? '<img class="avatar-img side-avatar" src="' + esc(avatarUrl) + '" alt="">'
+      ? '<img class="avatar-img side-avatar" src="' + esc(safeUrl(avatarUrl)) + '" alt="">'
       : '<span class="dot off" data-presence="' + esc(f.uid) + '"></span>';
     el.innerHTML = avatarHtml + '<span>' + esc(getDisplayName(f)) + '</span>';
     el.addEventListener('click', () => openDM(f));
@@ -1052,6 +1061,7 @@ function openDM(f) {
 
 function resetChat() {
   active = null;
+  if (msgUnsub) { try { msgUnsub(); } catch {} msgUnsub = null; }
   setChatting(false);
   $('chatTitle').textContent = 'Ciscord';
   $('messages').innerHTML = '<div class="empty">' + t('empty-select', 'Select a group or a friend') + '</div>';
@@ -1075,9 +1085,10 @@ function enableComposer(on) {
   if (on) $('input').focus();
 }
 
+let msgUnsub = null;
 function watchMessages() {
-  unsubs.splice(3).forEach(u => { try { u(); } catch {} });
-  unsubs.push(cis.watchMessages(active.scope, active.id, renderMessages));
+  if (msgUnsub) { try { msgUnsub(); } catch {} msgUnsub = null; }
+  msgUnsub = cis.watchMessages(active.scope, active.id, renderMessages);
 }
 
 async function renderMessages(list) {
@@ -1132,20 +1143,20 @@ async function renderMessages(list) {
       contentHtml += '</div>';
     } else {
       if (m.body) contentHtml += '<div class="msg-text">' + esc(m.body) + '</div>';
-      if (m.audio) contentHtml += '<div class="msg-audio"><audio controls preload="metadata" src="' + esc(m.audio) + '"></audio></div>';
+      if (m.audio) contentHtml += '<div class="msg-audio"><audio controls preload="metadata" src="' + esc(safeUrl(m.audio)) + '"></audio></div>';
       if (m.file) {
         const isImage = m.fileType && m.fileType.startsWith('image/');
         if (isImage) {
-          contentHtml += '<div class="msg-file"><img class="msg-image" src="' + esc(m.file) + '" alt="' + esc(m.fileName || 'image') + '"></div>';
+          contentHtml += '<div class="msg-file"><img class="msg-image" src="' + esc(safeUrl(m.file)) + '" alt="' + esc(m.fileName || 'image') + '"></div>';
         } else {
           const sizeStr = m.fileSize ? formatFileSize(m.fileSize) : '';
-          contentHtml += '<div class="msg-file"><a href="' + esc(m.file) + '" download="' + esc(m.fileName || 'file') + '" class="file-attachment">[file] ' + esc(m.fileName || 'file') + ' ' + (sizeStr ? '(' + sizeStr + ')' : '') + '</a></div>';
+          contentHtml += '<div class="msg-file"><a href="' + esc(safeUrl(m.file)) + '" download="' + esc(m.fileName || 'file') + '" class="file-attachment">[file] ' + esc(m.fileName || 'file') + ' ' + (sizeStr ? '(' + sizeStr + ')' : '') + '</a></div>';
         }
       }
     }
     
     const avatarHtml = avatarUrl
-      ? '<img class="avatar-img msg-avatar" src="' + esc(avatarUrl) + '" alt="">'
+      ? '<img class="avatar-img msg-avatar" src="' + esc(safeUrl(avatarUrl)) + '" alt="">'
       : '<div class="avatar-txt">' + esc(author.charAt(0).toUpperCase()) + '</div>';
     el.innerHTML = avatarHtml +
       '<div class="msg-body"><div class="msg-head"><span class="msg-author">' + esc(author) + '</span><span class="msg-time">' + esc(fmtTime(m.createdAt)) + '</span></div>' + contentHtml + '</div>';
@@ -2094,7 +2105,7 @@ async function renderGroupMembers(g) {
     el.className = 'member';
     const avatarUrl = getAvatarUrl(p);
     const avatarHtml = avatarUrl
-      ? '<img class="avatar-img member-avatar" src="' + esc(avatarUrl) + '" alt="">'
+      ? '<img class="avatar-img member-avatar" src="' + esc(safeUrl(avatarUrl)) + '" alt="">'
       : '<span class="dot off" data-presence="' + esc(uid) + '"></span>';
     el.innerHTML = avatarHtml + '<div><div class="member-name">' + esc(getDisplayName(p)) + (uid === cis.currentUid() ? ' (you)' : '') + '</div><div class="member-role">' + (uid === g.owner ? 'Owner' : 'Member') + '</div></div>';
     box.appendChild(el);
@@ -2116,7 +2127,7 @@ function renderMembers() {
   el.className = 'member';
   const avatarUrl = getAvatarUrl(f);
   const avatarHtml = avatarUrl
-    ? '<img class="avatar-img member-avatar" src="' + esc(avatarUrl) + '" alt="">'
+    ? '<img class="avatar-img member-avatar" src="' + esc(safeUrl(avatarUrl)) + '" alt="">'
     : '<span class="dot off" data-presence="' + esc(f.uid) + '"></span>';
   el.innerHTML = avatarHtml + '<div><div class="member-name">' + esc(getDisplayName(f)) + '</div><div class="member-role">' + esc(f.email || '') + '</div></div>';
   box.appendChild(el);
