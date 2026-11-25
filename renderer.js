@@ -1388,18 +1388,21 @@ async function joinExistingCall(callData) {
 }
 
 function endCurrentCall() {
-  if (!activeCall) return;
-  console.log('[Voice] Ending call:', activeCall.callId);
-  stopIncomingRing(); // safety: never keep ringing after an end
-  disconnectVoiceServer();
-  if (activeCall.callId) {
-    cis.endCall(activeCall.callId).catch(() => {});
-    cis.leaveCall(activeCall.callId).catch(() => {});
+  console.log('[Voice] Ending call:', activeCall ? activeCall.callId : '(no active call)');
+  // Never early-return before cleanup: even if activeCall is already null
+  // (e.g. ended remotely) the call UI must still be hidden. Otherwise the
+  // End/Hangup button looks dead.
+  try { stopIncomingRing(); } catch (e) { console.error('[Voice] ring stop error:', e); }
+  try { disconnectVoiceServer(); } catch (e) { console.error('[Voice] disconnect error:', e); }
+  if (activeCall && activeCall.callId) {
+    try { cis.endCall(activeCall.callId).catch(() => {}); } catch (e) {}
+    try { cis.leaveCall(activeCall.callId).catch(() => {}); } catch (e) {}
   }
   activeCall = null;
+  try {
+    if (callUnsub) { try { callUnsub(); } catch {} callUnsub = null; }
+  } catch (e) {}
   hideCallBar();
-  const modal = $('callModal');
-  if (modal) modal.classList.add('hidden');
 }
 
 function toggleMute() {
@@ -1929,6 +1932,25 @@ const btnCall = $('btnCall');
 if (btnCall) btnCall.addEventListener('click', startVoiceCall);
 const btnMic = $('btnMic');
 if (btnMic) btnMic.addEventListener('click', toggleRecording);
+
+// Wire call controls ONCE at startup with persistent listeners. Relying on
+// onclick reassignment inside showCallBar() left the End button dead whenever
+// the modal was shown by a path that skipped showCallBar (or after state
+// cleared). addEventListener survives show/hide cycles.
+['btnHangup', 'modalBtnHangup'].forEach(id => {
+  const b = $(id);
+  if (b && !b.dataset.wired) {
+    b.dataset.wired = '1';
+    b.addEventListener('click', e => { e.preventDefault(); endCurrentCall(); });
+  }
+});
+['btnMute', 'modalBtnMute'].forEach(id => {
+  const b = $(id);
+  if (b && !b.dataset.wired) {
+    b.dataset.wired = '1';
+    b.addEventListener('click', e => { e.preventDefault(); toggleMute(); });
+  }
+});
 
 document.querySelectorAll('.win-btns button').forEach(b => {
   b.addEventListener('click', () => window.cisWin.control(b.dataset.w));
