@@ -27,6 +27,8 @@ self.addEventListener('push', (event) => {
     const opts = {
       body: payload.body || '',
       tag: isCall ? 'ciscord-call' : 'ciscord-msg',
+      icon: './assets/icon.png',
+      badge: './assets/icon.png',
       renotify: true,
       // When the app is fully closed no page exists to play Blip, so let the
       // system notification sound play. In-app message notifications use the

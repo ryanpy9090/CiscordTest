@@ -302,6 +302,11 @@ async function registerPush(uid) {
 }
 
 // Fire-and-forget push fan-out to a list of uids (never blocks the send).
+// NOTE: the Cloud Function (functions/index.js onMessageCreated/onCallCreated)
+// now delivers pushes server-side — it works even when THIS device (sender)
+// is offline, and running both paths caused double notifications. The client
+// fan-out is kept only as a fallback for when the function errored/skipped.
+let serverPushSeen = new Set(); // message/call doc ids already pushed by the server path
 function notifyPush(recipients, payload) {
   try {
     const uids = (recipients || []).filter(u => u && u !== uidOf());
@@ -390,13 +395,14 @@ if ('serviceWorker' in navigator) {
 function notifyMessage(authorName, body) {
   try {
     if (!('Notification' in window)) return;
-    // Ring: the same two-tone blip used in-app, also for background tabs.
-    try { Blip.play(); } catch (e) {}
+    // NOTE: the in-app blip is already played by renderMessages() when fresh
+    // messages arrive — do NOT play it here again (that caused a double ring).
     if (Notification.permission !== 'granted') return;
     showNotification('💬 ' + (authorName || 'New message'), {
       body: (body || '').slice(0, 160) || 'Sent you a message',
       tag: 'ciscord-msg',
-      icon: undefined,
+      icon: './assets/icon.png',
+      badge: './assets/icon.png',
       renotify: true,
       silent: true // we play our own blip sound
     });
@@ -667,28 +673,20 @@ const cis = {
     if (extra.fileType) msgData.fileType = extra.fileType;
     if (extra.fileSize) msgData.fileSize = extra.fileSize;
     await db.collection('messages').add(msgData);
-    // Web Push fan-out: notify recipients even with the app fully closed.
-    (async () => {
-      try {
-        let recipients = participants.filter(u => u !== uidOf());
-        if (scope === 'group') {
-          const g = await db.collection('groups').doc(consistentThread).get();
-          const members = g.get('members');
-          if (Array.isArray(members)) recipients = members;
-        }
-        const myName = (me && me.name) || 'Someone';
-        notifyPush(recipients, {
-          title: '💬 ' + myName,
-          body: text.slice(0, 160) || 'Sent you a message',
-          call: false
-        });
-      } catch (e) { console.warn('[Push] message notify skipped:', e && e.message); }
-    })();
+    // Web Push fan-out — handled by the Cloud Function (functions/index.js)
+// which triggers on every new message doc and works even when the sender's
+// device is offline. The old client-side fan-out caused DOUBLE notifications
+// (receiver got both the client-encrypted push and the FCM/function one), so
+// it is disabled here.
+    void 0;
   },
 
   watchPresence(uid, cb) {
     if (!rtdb) return () => {};
-    return rtdb.ref('presence/' + uid).on('value', s => cb(s.val()));
+    const ref = rtdb.ref('presence/' + uid);
+    const handler = s => cb(s.val());
+    ref.on('value', handler);
+    return () => { try { ref.off('value', handler); } catch (e) {} };
   },
 
   async startCall(scope, threadId, participantUids) {
@@ -702,18 +700,9 @@ const cis = {
       scope, thread: callThread, participants: participantUids,
       createdBy: meUid, status: 'ringing', createdAt: F.serverTimestamp(),
     });
-    // Web Push ring: recipients get a system call notification (Accept/Decline)
-    // even when the app is fully closed.
-    const myName = (me && me.name) || 'Someone';
-    notifyPush(participantUids, {
-      title: '📞 ' + myName,
-      body: myName + ' is calling you on Ciscord',
-      call: true,
-      callId: callRef.id,
-      scope, thread: callThread,
-      createdBy: meUid,
-      participants: participantUids
-    });
+    // Web Push ring — handled by the Cloud Function (onCallCreated), which
+    // triggers on this call doc. Client-side fan-out removed (was doubling
+    // notifications). The callId is returned; the function delivers the ring.
     return callRef.id;
   },
 
@@ -834,6 +823,7 @@ function teardown() {
   groups = []; friends = []; requests = [];
   active = null;
   profileCache.clear();
+  presenceCache.forEach(v => { if (typeof v === 'function') { try { v(); } catch (e) {} } });
   presenceCache.clear();
   endCurrentCall();
 }
@@ -1009,12 +999,12 @@ function renderSidebar() {
 
 function watchPresenceDot(uid) {
   if (presenceCache.has(uid)) return;
-  presenceCache.set(uid, true);
-  cis.watchPresence(uid, v => {
+  const unsub = cis.watchPresence(uid, v => {
     const on = !!(v && v.online);
     document.querySelectorAll('[data-presence="' + uid + '"]').forEach(d => d.classList.toggle('off', !on));
     if (active && active.id === uid) renderMembers();
   });
+  presenceCache.set(uid, unsub || true);
 }
 
 async function profile(uid) {
