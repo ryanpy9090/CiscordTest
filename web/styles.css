@@ -29,6 +29,11 @@ body {
 }
 
 .hidden { display: none !important; }
+/* ── RTL (Arabic) adjustments ── */
+[dir="rtl"] .row { flex-direction: row-reverse; }
+[dir="rtl"] .row input, [dir="rtl"] .row select { margin-left: 0 !important; margin-right: 8px; }
+[dir="rtl"] .call-bar { flex-direction: row-reverse; }
+[dir="rtl"] .sheet-actions { flex-direction: row-reverse; }
 button { font-family: inherit; }
 button:disabled { opacity: .45; cursor: default; }
 

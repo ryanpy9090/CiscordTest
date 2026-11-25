@@ -26,7 +26,7 @@
   <div class="auth-card">
     <div class="logo-lg">C</div>
     <h1>Ciscord</h1>
-    <p class="auth-sub">Groups by invite. Private chats between friends.</p>
+    <p class="auth-sub" data-i18n="auth-sub">Groups by invite. Private chats between friends.</p>
 
     <button id="googleBtn" class="g-btn">
       <svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="true">
@@ -35,11 +35,11 @@
         <path fill="#FBBC05" d="M10.4 28.2A14.6 14.6 0 0 1 9.6 24c0-1.5.3-2.9.7-4.2l-7.8-6.1A23.9 23.9 0 0 0 .5 24c0 3.9.9 7.5 2.1 10.3l7.8-6.1z"/>
         <path fill="#34A853" d="M24 47.5c6.2 0 11.4-2 15.1-5.5l-7.6-5.9c-2 1.4-4.7 2.4-7.5 2.4-6.4 0-11.7-4.4-13.6-10.3l-7.8 6.1C6.5 42.1 14.6 47.5 24 47.5z"/>
       </svg>
-      <span>Continue with Google</span>
+      <span data-i18n="btn-google">Continue with Google</span>
     </button>
 
     <p id="authMsg" class="auth-msg"></p>
-    <p class="auth-note">Each person signs in with their own Google account.</p>
+    <p class="auth-note" data-i18n="auth-note">Each person signs in with their own Google account.</p>
   </div>
 </div>
 
@@ -64,7 +64,7 @@
   </div>
 
   <div class="sidebar">
-    <div class="side-head" id="sideHead">Groups</div>
+    <div class="side-head" id="sideHead" data-i18n="side-groups">Groups</div>
     <div id="sideBody" class="side-body"></div>
     <div class="me">
       <img id="mePhoto" class="avatar-img hidden" alt="">
@@ -83,13 +83,13 @@
       <span class="tb-title" id="chatTitle">Ciscord</span>
       <button id="btnEnableNotif" class="notif-ask-btn hidden" title="Enable desktop notifications">🔔 Enable notifications</button>
     </div>
-    <div id="messages" class="messages"><div class="empty">Select a group or a friend</div></div>
+    <div id="messages" class="messages"><div class="empty" data-i18n="empty-select">Select a group or a friend</div></div>
     <div class="composer">
-      <button id="btnAttach" class="composer-icon-btn" title="Attach file" disabled>+</button>
-      <button id="btnMic" class="composer-icon-btn" title="Voice message" disabled>MIC</button>
-      <input id="input" type="text" placeholder="Message…" autocomplete="off" disabled>
-      <button id="btnCall" class="composer-icon-btn" title="Voice call" disabled>CALL</button>
-      <button id="send" disabled>Send</button>
+      <button id="btnAttach" class="composer-icon-btn" title="Attach file" data-i18n-title="attach-title" disabled>+</button>
+      <button id="btnMic" class="composer-icon-btn" title="Voice message" data-i18n-title="btn-mic" disabled>MIC</button>
+      <input id="input" type="text" placeholder="Message…" data-i18n-ph="ph-message" autocomplete="off" disabled>
+      <button id="btnCall" class="composer-icon-btn" title="Voice call" data-i18n-title="call-title" disabled>CALL</button>
+      <button id="send" data-i18n="btn-send" disabled>Send</button>
     </div>
   </div>
 
@@ -99,9 +99,9 @@
 <!-- ══ Call bar ═══════════════════════════════════════════════════════ -->
 <div id="callBar" class="call-bar hidden">
   <span class="call-bar-text"></span>
-  <button id="btnMute" class="call-bar-btn" title="Mute/Unmute">🎤 Mute</button>
+  <button id="btnMute" class="call-bar-btn" title="Mute/Unmute" data-i18n="btn-mute">🎤 Mute</button>
   <button id="btnScreen" class="call-bar-btn" title="Share Screen">🖥 Share</button>
-  <button id="btnHangup" class="call-bar-btn hangup" title="End Call">✕ Hangup</button>
+  <button id="btnHangup" class="call-bar-btn hangup" title="End Call" data-i18n="btn-hangup">✕ Hangup</button>
 </div>
 
 <!-- ══ Full-screen call modal ═══════════════════════════════════════ -->
@@ -134,23 +134,29 @@
 <!-- ══ Account menu ════════════════════════════════════════════════════ -->
 <div id="meMenu" class="sheet hidden">
   <div class="sheet-card">
-    <h3>Account</h3>
-    <div class="row"><span class="k">Signed in as</span><span class="v" id="acctEmail">—</span></div>
-    <div class="row"><span class="k">Your friend code</span>
+    <h3 data-i18n="menu-account">Account</h3>
+    <div class="row"><span class="k" data-i18n="signed-in-as">Signed in as</span><span class="v" id="acctEmail">—</span></div>
+    <div class="row"><span class="k" data-i18n="friend-code">Your friend code</span>
       <span class="v code" id="acctCode">—</span>
-      <button class="mini" id="btnCopyCode">Copy</button>
+      <button class="mini" id="btnCopyCode" data-i18n="btn-copy">Copy</button>
     </div>
-    <p class="hint">Share this code so someone can add you as a friend.</p>
-    <div class="row"><span class="k">Display name</span>
-      <input id="acctDisplayName" type="text" placeholder="Custom name shown to friends" style="flex:1; margin-left:8px;">
-      <button class="mini" id="btnSaveDisplayName">Save</button>
+    <p class="hint" data-i18n="hint-share-code">Share this code so someone can add you as a friend.</p>
+    <div class="row"><span class="k" data-i18n="display-name">Display name</span>
+      <input id="acctDisplayName" type="text" placeholder="Custom name shown to friends" data-i18n-ph="ph-display-name" style="flex:1; margin-left:8px;">
+      <button class="mini" id="btnSaveDisplayName" data-i18n="btn-save">Save</button>
     </div>
-    <div class="row"><span class="k">Profile picture</span>
-      <button class="mini" id="btnUploadAvatar">Upload</button>
+    <div class="row"><span class="k" data-i18n="profile-pic">Profile picture</span>
+      <button class="mini" id="btnUploadAvatar" data-i18n="btn-upload">Upload</button>
+    </div>
+    <div class="row"><span class="k" data-i18n="language">Language</span>
+      <select id="langSelect" style="flex:1; margin-left:8px; padding:6px; background:var(--bg-main); color:var(--text); border:1px solid var(--border); border-radius:4px;">
+        <option value="en">English</option>
+        <option value="ar">العربية</option>
+      </select>
     </div>
     <div class="sheet-actions">
-      <button class="ghost" id="btnSignOut">Sign out</button>
-      <button class="danger" id="btnDelete">Delete my account</button>
+      <button class="ghost" id="btnSignOut" data-i18n="btn-signout">Sign out</button>
+      <button class="danger" id="btnDelete" data-i18n="btn-delete-account">Delete my account</button>
     </div>
   </div>
 </div>
