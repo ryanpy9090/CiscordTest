@@ -99,7 +99,9 @@ const PUSH = (() => {
       },
       body
     });
-    return res.ok || res.status === 201;
+    if (res.ok || res.status === 201) return 'ok';
+    if (res.status === 404 || res.status === 410) return 'gone'; // dead subscription
+    throw new Error('push service ' + res.status);
   }
 
   // Push to a set of uids; drops dead subscriptions.
@@ -114,12 +116,12 @@ const PUSH = (() => {
         if (!sub || !sub.endpoint || !sub.keys) continue;
         try {
           const ok = await sendTo(sub, payloadObj);
-          if (!ok && true) { /* non-2xx */ }
-        } catch (e) {
-          // 404/410 = gone → remove; other errors → keep
-          if (String(e && e.message).indexOf('410') >= 0 || String(e && e.message).indexOf('404') >= 0) {
+          if (ok === 'gone') {
+            // Subscription expired/unsubscribed → remove it so we stop trying.
             try { await db.collection('pushTokens').doc(uid).set({ subs: { [endpoint]: null } }, { merge: true }); } catch (e2) {}
           }
+        } catch (e) {
+          console.warn('[Push] send failed:', e && e.message);
         }
       }
     }

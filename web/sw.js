@@ -14,23 +14,36 @@ self.addEventListener('push', (event) => {
   try { payload = event.data ? event.data.json() : {}; } catch (e) {}
   const isCall = !!payload.call;
   const title = payload.title || (isCall ? '📞 Incoming call' : '💬 New message');
-  const opts = {
-    body: payload.body || '',
-    tag: isCall ? 'ciscord-call' : 'ciscord-msg',
-    renotify: true,
-    silent: !isCall,
-    data: payload
-  };
-  if (isCall) {
-    opts.silent = false;
-    opts.requireInteraction = true;
-    opts.vibrate = [400, 200, 400, 200, 400];
-    opts.actions = [
-      { action: 'accept', title: '✓ Accept' },
-      { action: 'decline', title: '✕ Decline' }
-    ];
-  }
-  event.waitUntil(self.registration.showNotification(title, opts));
+
+  event.waitUntil((async () => {
+    // If the app is open and visible, skip the push notification — the page
+    // shows its own in-app alert (Blip + toast), so no double notification.
+    try {
+      const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      const visible = clients.some(c => c.visibilityState === 'visible');
+      if (visible && !isCall) return;
+    } catch (e) {}
+
+    const opts = {
+      body: payload.body || '',
+      tag: isCall ? 'ciscord-call' : 'ciscord-msg',
+      renotify: true,
+      // When the app is fully closed no page exists to play Blip, so let the
+      // system notification sound play. In-app message notifications use the
+      // silent:true + Blip path instead, so no double sound.
+      silent: false,
+      data: payload
+    };
+    if (isCall) {
+      opts.requireInteraction = true;
+      opts.vibrate = [400, 200, 400, 200, 400];
+      opts.actions = [
+        { action: 'accept', title: '✓ Accept' },
+        { action: 'decline', title: '✕ Decline' }
+      ];
+    }
+    await self.registration.showNotification(title, opts);
+  })());
 });
 
 self.addEventListener('install', (e) => self.skipWaiting());

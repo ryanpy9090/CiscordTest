@@ -130,6 +130,7 @@ const I18N = {
     'notif-blocked': '🔕 الإشعارات محجوبة',
     'notif-on': '🔔 تم تفعيل الإشعارات',
     'notif-off': '🔕 الإشعارات مطفية — الرسائل تظهر كتنبيه داخل التطبيق',
+    'push-ready': '✅ الدفع جاهز — الإشعارات تشتغل حتى والتطبيق مقفل',
   },
 };
 let lang = 'en';
@@ -217,6 +218,10 @@ function ensureNotificationPermission() {
           Notification.requestPermission().then(p => {
             refresh();
             toast(p === 'granted' ? t('notif-on', '🔔 Notifications enabled') : t('notif-off', '🔕 Notifications off — messages show as toast only'));
+            // Now that permission is granted, subscribe this device to Web Push.
+            if (p === 'granted' && typeof uidOf === 'function' && uidOf()) {
+              registerPush(uidOf()).then(() => toast(t('push-ready', '✅ Push ready — notifications work even when the app is closed')));
+            }
           }).catch(() => {});
         };
       } else if (perm === 'denied') {
@@ -308,7 +313,7 @@ async function handleRemoteCallAction(action) {
   // call data from Firestore using the callId carried in the notification.
   if (!cd && action === 'accept') {
     const callId = arguments.length > 1 ? arguments[1] : (handleRemoteCallAction.lastCallId || null);
-    if (callId && window.cis) {
+    if (callId) {
       try {
         const snap = await db.collection('calls').doc(callId).get();
         if (snap.exists) {
@@ -319,6 +324,14 @@ async function handleRemoteCallAction(action) {
     }
   }
   if (!cd) return;
+  // Guard: if we already joined this call, ignore late decline (e.g. the user
+  // accepted then swiped the stale notification away).
+  if (action === 'decline' && activeCall) {
+    console.log('[Call] Ignoring decline — already in call');
+    closeNotificationByTag('ciscord-call');
+    pendingIncomingCall = null;
+    return;
+  }
   stopIncomingRing();
   closeNotificationByTag('ciscord-call');
   if (action === 'accept') {
@@ -1274,8 +1287,8 @@ function initFileDrop() {
 
 async function sendFile(file) {
   if (!active) return;
-  const MAX_SIZE = 5 * 1024 * 1024;
-  if (file.size > MAX_SIZE) { toast('File too large (max 5MB)'); return; }
+  const MAX_SIZE = 700 * 1024; // dataUrls are stored inline in a Firestore doc (1MB doc limit, base64 inflates ~1.37x) — keep under ~700KB raw
+  if (file.size > MAX_SIZE) { toast('File too large (max 700KB)'); return; }
   toast('Uploading file...');
   try {
     const dataUrl = await readFileAsDataUrl(file);
@@ -1304,9 +1317,12 @@ async function startRecording() {
       stream.getTracks().forEach(t => t.stop());
       const blob = new Blob(recordedChunks, { type: 'audio/webm' });
       if (blob.size > 0 && active) {
+        if (blob.size > 700 * 1024) { toast('Voice message too long (max ~60s)'); }
+        else {
         const dataUrl = await blobToDataUrl(blob);
         try { await cis.sendMessage(active.scope, active.id, '', { audio: dataUrl }); toast('Voice message sent'); }
         catch (e) { toast('Could not send voice message'); }
+        }
       }
       const btn = $('btnMic');
       if (btn) { btn.classList.remove('recording'); btn.textContent = 'MIC'; }
@@ -1519,7 +1535,7 @@ function updateCallParticipants() {
   localDiv.className = 'participant';
   localDiv.innerHTML = `
     <div class="participant-info">
-      <span class="participant-name">${me.displayName || me.email} (You)</span>
+      <span class="participant-name">${esc(me.displayName || me.email || 'You')} (You)</span>
       <span class="participant-status">${isMuted ? '🔇 Muted' : '🎤 Speaking'}</span>
       ${isVideoOff ? '<span class="participant-status">📷 Camera Off</span>' : ''}
     </div>
