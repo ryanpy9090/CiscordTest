@@ -1,7 +1,7 @@
 {
   "ai": {
     "provider": "alibaba",
-    "api_key": "sk-sp-4dbbab2a75854c178cc27896ef21e3b4",
+    "api_key": "sk-sp-REPLACE_WITH_YOUR_KEY",
     "api_url": "https://coding-intl.dashscope.aliyuncs.com/v1/chat/completions",
     "model": "qwen-plus",
     "enabled": true,
