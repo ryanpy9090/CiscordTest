@@ -51,7 +51,7 @@ const PUSH = (() => {
     const data = enc.encode(header + '.' + payload);
     const sig = new Uint8Array(await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, vapidPrivKey, data));
     const jwt = header + '.' + payload + '.' + bytesToB64u(sig);
-    return '***' + jwt + ', k=' + VAPID_PUBLIC_B64;
+    return 'vapid t=' + jwt + ', k=' + VAPID_PUBLIC_B64;
   }
 
   // ── Payload encryption (RFC 8291, aes128gcm) ──
