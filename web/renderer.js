@@ -119,6 +119,7 @@ const I18N = {
     'call-waiting': 'بانتظار الطرف الآخر…',
     'call-connecting': 'جاري الاتصال…',
     'call-incoming': '📞 {name} يتصل…',
+    'call-incoming-body': '{name} يتصل بك على Ciscord',
     'toast-call-started': 'بدأت المكالمة',
     'toast-call-joined': 'انضممت للمكالمة',
     'toast-muted': 'تم كتم المايك',
@@ -250,13 +251,55 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 function showNotification(title, options) {
   try {
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    const opts = Object.assign({ badge: undefined }, options);
     if (swReg && swReg.showNotification) {
-      swReg.showNotification(title, Object.assign({ badge: undefined }, options));
+      swReg.showNotification(title, opts);
     } else {
-      const n = new Notification(title, options);
+      const n = new Notification(title, opts);
       n.onclick = () => { window.focus(); n.close(); };
     }
   } catch (e) { console.warn('[Notify] show failed:', e); }
+}
+
+function closeNotificationByTag(tag) {
+  try {
+    if (!swReg || !swReg.getNotifications) return;
+    swReg.getNotifications({ tag }).then(ns => ns.forEach(n => { try { n.close(); } catch (e) {} })).catch(() => {});
+  } catch (e) {}
+}
+
+// Call actions from the system notification (Accept / Decline buttons work
+// even when the tab is in the background). The service worker forwards the
+// choice here via postMessage.
+let pendingIncomingCall = null; // set by showIncomingCall, cleared on accept/decline
+async function handleRemoteCallAction(action) {
+  const cd = pendingIncomingCall;
+  console.log('[Call] Notification action:', action, cd ? cd.callId : '(no pending call)');
+  if (!cd) return;
+  stopIncomingRing();
+  closeNotificationByTag('ciscord-call');
+  if (action === 'accept') {
+    try { await joinExistingCall(cd); } catch (e) { console.error('[Call] accept failed:', e); }
+  }
+  pendingIncomingCall = null;
+  // Clean up ringing UI (accept buttons etc.)
+  try {
+    document.querySelectorAll('#callAccept,#callDecline,#modalCallAccept,#modalCallDecline').forEach(b => b.remove());
+    const bar = $('callBar');
+    if (bar) { bar.classList.remove('incoming'); bar.classList.toggle('hidden', action !== 'accept'); }
+    const modal = $('callModal');
+    if (modal && action !== 'accept') modal.classList.add('hidden');
+    const mm = $('modalBtnMute'); if (mm) mm.style.display = '';
+    const bm = $('btnMute'); if (bm) bm.style.display = '';
+  } catch (e) {}
+}
+if ('serviceWorker' in navigator) {
+  try {
+    navigator.serviceWorker.addEventListener('message', ev => {
+      const d = ev.data || {};
+      if (d.type === 'ciscord-call-action') handleRemoteCallAction(d.action).catch(() => {});
+    });
+  } catch (e) {}
 }
 
 // Mobile back button: leave the chat view, show the sidebar again.
@@ -280,10 +323,15 @@ function showNotification(title, options) {
 function notifyMessage(authorName, body) {
   try {
     if (!('Notification' in window)) return;
+    // Ring: the same two-tone blip used in-app, also for background tabs.
+    try { Blip.play(); } catch (e) {}
     if (Notification.permission !== 'granted') return;
     showNotification('💬 ' + (authorName || 'New message'), {
-      body: (body || '').slice(0, 120) || 'Sent you a message',
-      tag: 'ciscord-msg'
+      body: (body || '').slice(0, 160) || 'Sent you a message',
+      tag: 'ciscord-msg',
+      icon: undefined,
+      renotify: true,
+      silent: true // we play our own blip sound
     });
   } catch (e) {}
 }
@@ -1645,6 +1693,8 @@ function endCurrentCall() {
     try { cis.leaveCall(activeCall.callId).catch(() => {}); } catch (e) {}
   }
   activeCall = null;
+  pendingIncomingCall = null;
+  closeNotificationByTag('ciscord-call');
   try {
     if (callUnsub) { try { callUnsub(); } catch {} callUnsub = null; }
   } catch (e) {}
@@ -1761,14 +1811,21 @@ const Ringer = (() => {
 })();
 
 // Background-tab fallback: a system Notification naming the caller.
-function notifyIncomingCall(callerName) {
+function notifyIncomingCall(callerName, callId) {
   try {
-    if (!document.hidden || !('Notification' in window)) return;
+    if (!('Notification' in window)) return;
     if (Notification.permission === 'granted') {
-      showNotification('📞 Incoming call', {
-        body: (callerName || 'Someone') + ' is calling you on Ciscord',
+      showNotification('📞 ' + (callerName || 'Incoming call'), {
+        body: t('call-incoming-body', { name: callerName || 'Someone', __fallback: (callerName || 'Someone') + ' is calling you on Ciscord' }),
         tag: 'ciscord-call',
-        requireInteraction: true
+        renotify: true,
+        requireInteraction: true,
+        vibrate: [400, 200, 400, 200, 400],
+        data: { callId: callId || null },
+        actions: [
+          { action: 'accept', title: '✓ Accept' },
+          { action: 'decline', title: '✕ Decline' }
+        ]
       });
     } else if (Notification.permission !== 'denied') {
       Notification.requestPermission();
@@ -1798,9 +1855,10 @@ function stopIncomingRing() {
 
 function showIncomingCall(callData) {
   Ringer.start();
+  pendingIncomingCall = callData;
   const callerUid = callData.createdBy;
   callerIdentity(callerUid).then(({ name, photo }) => {
-    notifyIncomingCall(name);
+    notifyIncomingCall(name, callData.callId);
     const modal = $('callModal');
     if (modal) {
       modal.classList.remove('hidden');
