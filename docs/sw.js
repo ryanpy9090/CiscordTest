@@ -1,6 +1,38 @@
-/* Ciscord service worker — enables web notifications on mobile browsers
-   (Android Chrome ignores `new Notification()` from a page; notifications
-   must be shown through a service worker registration). */
+/* Ciscord service worker — web notifications (messages + calls).
+   Two sources:
+   1. Local (same-tab) notifications via `registration.showNotification()` —
+      used when the tab is open.
+   2. Web Push `push` events — deliver messages and call invitations even
+      when every Ciscord tab is fully closed (payload encrypted by the
+      sender's browser, see web/push.js).
+   Call notifications carry Accept / Decline actions: clicking one focuses
+   (or opens) the app and forwards the choice to the page via postMessage. */
+
+// ── Web Push: fires even with the app fully closed ──
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try { payload = event.data ? event.data.json() : {}; } catch (e) {}
+  const isCall = !!payload.call;
+  const title = payload.title || (isCall ? '📞 Incoming call' : '💬 New message');
+  const opts = {
+    body: payload.body || '',
+    tag: isCall ? 'ciscord-call' : 'ciscord-msg',
+    renotify: true,
+    silent: !isCall,
+    data: payload
+  };
+  if (isCall) {
+    opts.silent = false;
+    opts.requireInteraction = true;
+    opts.vibrate = [400, 200, 400, 200, 400];
+    opts.actions = [
+      { action: 'accept', title: '✓ Accept' },
+      { action: 'decline', title: '✕ Decline' }
+    ];
+  }
+  event.waitUntil(self.registration.showNotification(title, opts));
+});
+
 self.addEventListener('install', (e) => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
 

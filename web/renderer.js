@@ -268,13 +268,56 @@ function closeNotificationByTag(tag) {
   } catch (e) {}
 }
 
+// ── Web Push registration: lets messages and calls arrive even when every
+//    Ciscord tab/app is fully closed. Requires the notification permission
+//    (the 🔔 button). The device's push subscription is saved to
+//    pushTokens/{uid}; senders encrypt directly to it (see web/push.js). ──
+let pushRegistered = false;
+async function registerPush(uid) {
+  if (pushRegistered) return;
+  try {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || location.protocol !== 'https:') return;
+    pushRegistered = true;
+    const registration = await navigator.serviceWorker.register('./sw.js');
+    swReg = registration;
+    await PUSH.subscribeDevice(uid, registration);
+    console.log('[Push] subscription saved');
+  } catch (e) {
+    pushRegistered = false;
+    console.warn('[Push] registration failed:', e && e.message);
+  }
+}
+
+// Fire-and-forget push fan-out to a list of uids (never blocks the send).
+function notifyPush(recipients, payload) {
+  try {
+    const uids = (recipients || []).filter(u => u && u !== uidOf());
+    if (!uids.length || !window.PUSH) return;
+    PUSH.pushToUids(uids, payload).catch(e => console.warn('[Push] fan-out failed:', e && e.message));
+  } catch (e) {}
+}
+
 // Call actions from the system notification (Accept / Decline buttons work
 // even when the tab is in the background). The service worker forwards the
 // choice here via postMessage.
 let pendingIncomingCall = null; // set by showIncomingCall, cleared on accept/decline
 async function handleRemoteCallAction(action) {
-  const cd = pendingIncomingCall;
+  let cd = pendingIncomingCall;
   console.log('[Call] Notification action:', action, cd ? cd.callId : '(no pending call)');
+  // Cold start: app was fully closed when the call arrived — reconstruct the
+  // call data from Firestore using the callId carried in the notification.
+  if (!cd && action === 'accept') {
+    const callId = arguments.length > 1 ? arguments[1] : (handleRemoteCallAction.lastCallId || null);
+    if (callId && window.cis) {
+      try {
+        const snap = await db.collection('calls').doc(callId).get();
+        if (snap.exists) {
+          cd = Object.assign({ callId }, snap.data());
+          pendingIncomingCall = cd;
+        }
+      } catch (e) { console.error('[Call] cold-start lookup failed:', e); }
+    }
+  }
   if (!cd) return;
   stopIncomingRing();
   closeNotificationByTag('ciscord-call');
@@ -297,7 +340,10 @@ if ('serviceWorker' in navigator) {
   try {
     navigator.serviceWorker.addEventListener('message', ev => {
       const d = ev.data || {};
-      if (d.type === 'ciscord-call-action') handleRemoteCallAction(d.action).catch(() => {});
+      if (d.type === 'ciscord-call-action') {
+        if (d.callId) handleRemoteCallAction.lastCallId = d.callId;
+        handleRemoteCallAction(d.action, d.callId).catch(() => {});
+      }
     });
   } catch (e) {}
 }
@@ -600,6 +646,23 @@ const cis = {
     if (extra.fileType) msgData.fileType = extra.fileType;
     if (extra.fileSize) msgData.fileSize = extra.fileSize;
     await db.collection('messages').add(msgData);
+    // Web Push fan-out: notify recipients even with the app fully closed.
+    (async () => {
+      try {
+        let recipients = participants.filter(u => u !== uidOf());
+        if (scope === 'group') {
+          const g = await db.collection('groups').doc(consistentThread).get();
+          const members = g.get('members');
+          if (Array.isArray(members)) recipients = members;
+        }
+        const myName = (me && me.name) || 'Someone';
+        notifyPush(recipients, {
+          title: '💬 ' + myName,
+          body: text.slice(0, 160) || 'Sent you a message',
+          call: false
+        });
+      } catch (e) { console.warn('[Push] message notify skipped:', e && e.message); }
+    })();
   },
 
   watchPresence(uid, cb) {
@@ -617,6 +680,18 @@ const cis = {
     const callRef = await db.collection('calls').add({
       scope, thread: callThread, participants: participantUids,
       createdBy: meUid, status: 'ringing', createdAt: F.serverTimestamp(),
+    });
+    // Web Push ring: recipients get a system call notification (Accept/Decline)
+    // even when the app is fully closed.
+    const myName = (me && me.name) || 'Someone';
+    notifyPush(participantUids, {
+      title: '📞 ' + myName,
+      body: myName + ' is calling you on Ciscord',
+      call: true,
+      callId: callRef.id,
+      scope, thread: callThread,
+      createdBy: meUid,
+      participants: participantUids
     });
     return callRef.id;
   },
@@ -718,6 +793,7 @@ function bootApp() {
     $('app').classList.remove('hidden');
     renderMe();
     ensureNotificationPermission(); // check notification permission on launch
+    registerPush(user.uid); // FCM token → pushTokens/{uid} (works when app is fully closed)
     startWatching();
   });
   if (rtdb) {
